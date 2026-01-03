@@ -1,0 +1,11 @@
+---
+- name: Full Stack Deployment
+  hosts: k8s_cluster
+  become: yes
+  
+  roles:
+    - common
+    - docker-registry
+    - kubernetes
+    - react-app
+    - haproxy

@@ -1,0 +1,72 @@
+---
+- name: Install Docker packages
+  apt:
+    name:
+      - docker.io
+      - apache2-utils
+    state: present
+
+- name: Start and enable Docker service
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Create registry directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ registry_base_path }}"
+    - "{{ registry_base_path }}/data"
+    - "{{ registry_base_path }}/auth"
+
+- name: Generate htpasswd for registry authentication
+  shell: >
+    htpasswd -Bbn {{ registry_username }} {{ registry_password }} 
+    > {{ registry_base_path }}/auth/htpasswd
+  args:
+    creates: "{{ registry_base_path }}/auth/htpasswd"
+
+- name: Copy Docker registry compose file
+  copy:
+    src: docker-compose.yml
+    dest: "{{ registry_base_path }}/docker-compose.yml"
+    mode: '0644'
+
+- name: Copy Docker daemon configuration
+  copy:
+    src: daemon.json
+    dest: /etc/docker/daemon.json
+    mode: '0644'
+  notify: restart docker
+
+- name: Ensure handlers are flushed
+  meta: flush_handlers
+
+- name: Stop and remove existing registry containers
+  shell: |
+    docker stop docker-registry 2>/dev/null || true
+    docker rm docker-registry 2>/dev/null || true
+  ignore_errors: yes
+
+- name: Start Docker registry using docker compose
+  shell: docker compose up -d --force-recreate
+  args:
+    chdir: "{{ registry_base_path }}"
+
+- name: Wait for registry to be available
+  wait_for:
+    port: "{{ registry_port }}"
+    delay: 5
+    timeout: 60
+
+- name: Verify registry is accessible
+  uri:
+    url: "http://{{ server_ip }}:{{ registry_port }}/v2/_catalog"
+    method: GET
+    user: "{{ registry_username }}"
+    password: "{{ registry_password }}"
+    force_basic_auth: yes
+    status_code: 200

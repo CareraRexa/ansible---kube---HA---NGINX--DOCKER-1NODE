@@ -1,0 +1,7 @@
+---
+- name: Deploy React Application
+  hosts: k8s_cluster
+  become: yes
+  
+  roles:
+    - react-app

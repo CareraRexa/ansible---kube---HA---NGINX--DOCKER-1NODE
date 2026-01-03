@@ -1,0 +1,7 @@
+---
+- name: Deploy HAProxy Load Balancer
+  hosts: k8s_cluster
+  become: yes
+  
+  roles:
+    - haproxy

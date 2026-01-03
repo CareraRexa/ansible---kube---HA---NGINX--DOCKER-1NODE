@@ -1,0 +1,106 @@
+---
+- name: Install HAProxy
+  apt:
+    name:
+      - haproxy
+      # - certbot  # Uncomment when you have domain
+    state: present
+
+# ====================================================================
+# UNCOMMENT SECTION BELOW WHEN YOU HAVE A DOMAIN
+# ====================================================================
+#
+# - name: Install Certbot
+#   apt:
+#     name: certbot
+#     state: present
+#
+# - name: Stop HAProxy for SSL certificate generation
+#   systemd:
+#     name: haproxy
+#     state: stopped
+#
+# - name: Check if SSL certificate exists
+#   stat:
+#     path: "/etc/letsencrypt/live/{{ domain_name }}/fullchain.pem"
+#   register: ssl_certificate
+#
+# - name: Generate SSL certificate with Let's Encrypt
+#   shell: >
+#     certbot certonly --standalone
+#     -d {{ domain_name }}
+#     --email {{ email_address }}
+#     --agree-tos
+#     --non-interactive
+#   when: not ssl_certificate.stat.exists
+#
+# - name: Combine SSL certificates for HAProxy
+#   shell: >
+#     cat /etc/letsencrypt/live/{{ domain_name }}/fullchain.pem
+#     /etc/letsencrypt/live/{{ domain_name }}/privkey.pem
+#     > /etc/ssl/private/haproxy-ssl.pem
+#   args:
+#     creates: /etc/ssl/private/haproxy-ssl.pem
+#
+# - name: Set proper permissions on SSL certificate
+#   file:
+#     path: /etc/ssl/private/haproxy-ssl.pem
+#     mode: '0600'
+#     owner: root
+#     group: root
+#
+# - name: Copy certificate renewal script
+#   copy:
+#     src: renew-cert.sh
+#     dest: /usr/local/bin/renew-haproxy-cert.sh
+#     mode: '0755'
+#
+# - name: Setup cron job for SSL certificate renewal
+#   cron:
+#     name: "Renew HAProxy SSL certificate"
+#     minute: "0"
+#     hour: "3"
+#     day: "*"
+#     month: "*"
+#     weekday: "*"
+#     job: "/usr/local/bin/renew-haproxy-cert.sh >> /var/log/certbot-renew.log 2>&1"
+
+- name: Deploy HAProxy configuration
+  copy:
+    src: haproxy.cfg
+    dest: /etc/haproxy/haproxy.cfg
+    mode: '0644'
+    validate: haproxy -c -f %s
+  notify: restart haproxy
+
+- name: Start and enable HAProxy
+  systemd:
+    name: haproxy
+    state: started
+    enabled: yes
+
+- name: Wait for HAProxy to be ready
+  wait_for:
+    port: 80
+    delay: 5
+    timeout: 30
+
+- name: Display access information
+  debug:
+    msg:
+      - "=========================================="
+      - "HAProxy deployed successfully (HTTP only)"
+      - "=========================================="
+      - "Access your app at: http://{{ server_ip }}"
+      - "HAProxy stats: http://{{ server_ip }}:8404/stats"
+      - "Username: admin"
+      - "Password: password123"
+      - ""
+      - "To enable HTTPS later:"
+      - "1. Get a domain (e.g., DuckDNS)"
+      - "2. Update group_vars/all.yml with your domain"
+      - "3. Uncomment SSL sections in:"
+      - "   - roles/haproxy/tasks/main.yml"
+      - "   - roles/haproxy/files/haproxy.cfg"
+      - "4. Re-run: ansible-playbook playbooks/deploy-haproxy.yml"
+      - "=========================================="

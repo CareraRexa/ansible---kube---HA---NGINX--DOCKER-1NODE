@@ -1,0 +1,26 @@
+---
+# General Configuration
+domain_name: myreactapp.duckdns.org
+email_address: your-email@gmail.com
+server_ip: 192.168.95.135
+
+# Docker Registry Configuration
+registry_port: 5000
+registry_username: admin
+registry_password: SecurePassword123!
+registry_base_path: /opt/docker-registry
+
+# Application Configuration
+app_name: trial-deployment
+app_replicas: 3
+app_source_path: /home/docker-server/my-app/trial-deployment
+app_nodeport: 30080
+
+# HAProxy Configuration
+haproxy_stats_port: 8404
+haproxy_stats_username: admin
+haproxy_stats_password: password123
+
+# Kubernetes Configuration
+k8s_pod_cidr: 10.244.0.0/16
+k8s_version: "1.28"

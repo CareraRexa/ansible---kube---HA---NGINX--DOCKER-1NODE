@@ -1,0 +1,8 @@
+---
+- name: Deploy Kubernetes Cluster
+  hosts: k8s_cluster
+  become: yes
+  
+  roles:
+    - common
+    - kubernetes

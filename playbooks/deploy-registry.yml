@@ -1,0 +1,8 @@
+---
+- name: Deploy Docker Private Registry
+  hosts: k8s_cluster
+  become: yes
+  
+  roles:
+    - common
+    - docker-registry

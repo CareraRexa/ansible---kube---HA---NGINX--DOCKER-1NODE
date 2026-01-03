@@ -1,0 +1,55 @@
+---
+- name: Login to private Docker registry
+  community.docker.docker_login:
+    registry_url: "{{ server_ip }}:{{ registry_port }}"
+    username: "{{ registry_username }}"
+    password: "{{ registry_password }}"
+
+- name: Build React application Docker image
+  community.docker.docker_image:
+    name: "{{ server_ip }}:{{ registry_port }}/{{ app_name }}"
+    tag: latest
+    source: build
+    build:
+      path: "{{ app_source_path }}"
+      pull: yes
+    state: present
+    force_source: yes
+    push: yes
+
+- name: Create Kubernetes secret for registry using kubectl
+  become_user: docker-server
+  shell: |
+    kubectl create secret docker-registry regcred \
+      --docker-server={{ server_ip }}:{{ registry_port }} \
+      --docker-username={{ registry_username }} \
+      --docker-password={{ registry_password }} \
+      --docker-email={{ email_address }} \
+      --dry-run=client -o yaml | kubectl apply -f -
+
+- name: Copy Kubernetes deployment manifest
+  copy:
+    src: k8s-deployment.yml
+    dest: /tmp/k8s-deployment.yml
+    mode: '0644'
+
+- name: Deploy application to Kubernetes
+  become_user: docker-server
+  shell: kubectl apply -f /tmp/k8s-deployment.yml
+
+- name: Wait for deployment to be available
+  become_user: docker-server
+  shell: kubectl wait --for=condition=available --timeout=300s deployment/{{ app_name }}
+  register: deployment_wait
+  retries: 3
+  delay: 10
+  until: deployment_wait.rc == 0
+
+- name: Get deployment status
+  become_user: docker-server
+  shell: kubectl get pods -l app={{ app_name }}
+  register: pods_status
+
+- name: Display pods status
+  debug:
+    var: pods_status.stdout_lines
